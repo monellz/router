@@ -44,6 +44,7 @@ extern uint16_t calculateIPChecksum(uint8_t *packet, size_t len);
  * Metric 转换成小端序后是否在 [1,16] 的区间内，
  * Mask 的二进制是不是连续的 1 与连续的 0 组成等等。
  */
+#include <stdio.h>
 bool disassembleRIP(const uint8_t *packet, uint32_t len, RipPacket *output) {
     uint16_t total_length = packet[2] << 8 | packet[3];
     uint8_t command = packet[28];
@@ -61,10 +62,10 @@ bool disassembleRIP(const uint8_t *packet, uint32_t len, RipPacket *output) {
             output->entries[i].addr = packet[head + 4] | packet[head + 5] << 8 | packet[head + 6] << 16 | packet[head + 7] << 24;
             output->entries[i].mask = packet[head + 8] | packet[head + 9] << 8 | packet[head + 10] << 16 | packet[head + 11] << 24;
             output->entries[i].nexthop = packet[head + 12] | packet[head + 13] << 8 | packet[head + 14] << 16 | packet[head + 15] << 24;
-            output->entries[i].metric = packet[head + 16] | packet[head + 17] << 8 | packet[head + 18] << 16 | packet[head + 19] << 24;
-            uint32_t metric = packet[head + 16] << 24 | packet[head + 17] << 16 | packet[head + 18] << 8 | packet[head + 19];
+            //uint32_t metric = packet[head + 16] << 24 | packet[head + 17] << 16 | packet[head + 18] << 8 | packet[head + 19];
+            output->entries[i].metric = packet[head + 16] << 24 | packet[head + 17] << 16 | packet[head + 18] << 8 | packet[head + 19];
 
-            if (metric < 1 || metric > 16) return false;
+            if (output->entries[i].metric < 1 || output->entries[i].metric > 16) return false;
             if ((output->entries[i].mask + 1) & output->entries[i].mask) return false;
  
         }
@@ -98,18 +99,18 @@ uint32_t assembleRIP(const RipPacket *rip, uint8_t *buffer) {
         buffer[head + 5] = rip->entries[i].addr >> 8;
         buffer[head + 6] = rip->entries[i].addr >> 16;
         buffer[head + 7] = rip->entries[i].addr >> 24;
-        buffer[head + 8] = rip->entries[i].mask;
-        buffer[head + 9] = rip->entries[i].mask >> 8;
-        buffer[head + 10] = rip->entries[i].mask >> 16;
-        buffer[head + 11] = rip->entries[i].mask >> 24;
+        buffer[head + 8] = ~rip->entries[i].mask;
+        buffer[head + 9] = ~(rip->entries[i].mask >> 8);
+        buffer[head + 10] = ~(rip->entries[i].mask >> 16);
+        buffer[head + 11] = ~(rip->entries[i].mask >> 24);
         buffer[head + 12] = rip->entries[i].nexthop;
         buffer[head + 13] = rip->entries[i].nexthop >> 8;
         buffer[head + 14] = rip->entries[i].nexthop >> 16;
         buffer[head + 15] = rip->entries[i].nexthop >> 24;
-        buffer[head + 16] = rip->entries[i].metric;
-        buffer[head + 17] = rip->entries[i].metric >> 8;
-        buffer[head + 18] = rip->entries[i].metric >> 16;
-        buffer[head + 19] = rip->entries[i].metric >> 24;
+        buffer[head + 16] = rip->entries[i].metric >> 24;
+        buffer[head + 17] = rip->entries[i].metric >> 16;
+        buffer[head + 18] = rip->entries[i].metric >> 8;
+        buffer[head + 19] = rip->entries[i].metric;
     }
     return 4 + 20 * rip->numEntries;
 }
@@ -119,8 +120,8 @@ uint32_t assembleUDP(uint8_t *buffer, uint32_t data_len) {
     buffer[UDP_SRC_PORT_1] = UDP_PORT & 0xff;
     buffer[UDP_DST_PORT_0] = (UDP_PORT >> 8) & 0xff;
     buffer[UDP_DST_PORT_1] = UDP_PORT & 0xff;
-    buffer[UDP_TOTAL_LENGTH_0] = (data_len >> 8) & 0xff;
-    buffer[UDP_TOTAL_LENGTH_1] = data_len & 0xff;
+    buffer[UDP_TOTAL_LENGTH_0] = ((data_len + UDP_DEFAULT_HEADER_LENGTH) >> 8) & 0xff;
+    buffer[UDP_TOTAL_LENGTH_1] = (data_len + UDP_DEFAULT_HEADER_LENGTH) & 0xff;
     buffer[UDP_TOTAL_CHECKSUM_0] = buffer[UDP_TOTAL_CHECKSUM_1] = 0;
     return data_len + UDP_DEFAULT_HEADER_LENGTH;
 }
@@ -134,7 +135,7 @@ uint32_t assembleIP(uint8_t *buffer, uint32_t src_addr, uint32_t dst_addr, uint3
     buffer[IP_TOTAL_LENGTH_1] = length & 0xff;
     buffer[IP_IDENTIFIER_0] = buffer[IP_IDENTIFIER_1] = 0;
     buffer[IP_FLAGS_FRAMENTED_OFFSET_0] = buffer[IP_FLAGS_FRAMENTED_OFFSET_1] = 0;
-    buffer[IP_TTL] = IP_DEFAULT_TTL;
+    buffer[IP_TTL] = 1;
     buffer[IP_PROTOCOL] = IP_PROTOCOL_UDP;
     //buffer[IP_HEADER_CHECKSUM_0] = buffer[IP_HEADER_CHECKSUM_1] = 0;
     buffer[IP_SRC_ADDR_0] = src_addr & 0xff;

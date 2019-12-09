@@ -16,7 +16,7 @@
 #define RIP_METRIC_INFINITY 16
 
 typedef struct {
-    // all fields are big endian
+    // all fields are big endian except metric
     // we don't store 'family', as it is always 2(response) and 0(request)
     // we don't store 'tag', as it is always 0
     uint32_t addr;

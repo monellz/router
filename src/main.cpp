@@ -28,7 +28,8 @@ uint8_t output[2048];
 // 2: 10.0.2.1
 // 3: 10.0.3.1
 // 你可以按需进行修改，注意端序
-in_addr_t addrs[N_IFACE_ON_BOARD] = {0x0100000a, 0x0101000a, 0x0102000a, 0x0103000a};
+//in_addr_t addrs[N_IFACE_ON_BOARD] = {0x0100000a, 0x0101000a, 0x0102000a, 0x0103000a};
+in_addr_t addrs[N_IFACE_ON_BOARD] = {0x21002a0a, 0x0101000a, 0x0102000a, 0x0103000a};
 
 void fillRipPacket(RipPacket *packet) {
     //for response
@@ -37,6 +38,9 @@ void fillRipPacket(RipPacket *packet) {
     if (entry_num > RIP_MAX_ENTRY) {
         printf("Warning! table entry num is larger than RIP_MAX_ENTRY\n");
         entry_num = RIP_MAX_ENTRY;
+    }
+    if (entry_num == 0) {
+        printf("Warning! fill Rip Packet with ZERO entry\n");
     }
 
     packet->numEntries = entry_num;
@@ -71,7 +75,7 @@ void trigger_one(const RoutingTableEntry& entry) {
         resp.entries[0].nexthop = entry.nexthop;
         uint32_t rip_len = assembleRIP(&resp, output + IP_DEFAULT_HEADER_LENGTH + UDP_DEFAULT_HEADER_LENGTH);
         uint32_t udp_len = assembleUDP(output + IP_DEFAULT_HEADER_LENGTH, rip_len);
-        uint32_t ip_len = assembleIP(output, RIP_MULTICAST_ADDR, addrs[i], udp_len);
+        uint32_t ip_len = assembleIP(output, addrs[i], RIP_MULTICAST_ADDR, udp_len);
         macaddr_t multicast_dst;
         HAL_ArpGetMacAddress(i, RIP_MULTICAST_ADDR, multicast_dst);
         HAL_SendIPPacket(i, output, ip_len, multicast_dst);   
@@ -84,9 +88,10 @@ void trigger_all() {
     for (uint32_t i = 0; i < N_IFACE_ON_BOARD; i++) {
         RipPacket resp;
         fillRipPacket(&resp);
+	memset(output, 0, sizeof(output));
         uint32_t rip_len = assembleRIP(&resp, output + IP_DEFAULT_HEADER_LENGTH + UDP_DEFAULT_HEADER_LENGTH);
         uint32_t udp_len = assembleUDP(output + IP_DEFAULT_HEADER_LENGTH, rip_len);
-        uint32_t ip_len = assembleIP(output, RIP_MULTICAST_ADDR, addrs[i], udp_len);
+        uint32_t ip_len = assembleIP(output, addrs[i], RIP_MULTICAST_ADDR, udp_len);
         macaddr_t multicast_dst;
         HAL_ArpGetMacAddress(i, RIP_MULTICAST_ADDR, multicast_dst);
         HAL_SendIPPacket(i, output, ip_len, multicast_dst);   
@@ -110,7 +115,8 @@ int main(int argc, char *argv[]) {
     // 10.0.3.0/24 if 3
     for (uint32_t i = 0; i < N_IFACE_ON_BOARD; i++) {
         RoutingTableEntry entry = {
-            .addr = addrs[i] & 0x00ffffff, // big endian
+            //.addr = addrs[i] & 0x00ffffff, // big endian
+            .addr = addrs[i], // big endian
             .len = 24,        // small endian
             .if_index = i,    // small endian
             .nexthop = 0,      // big endian, means direct
@@ -160,7 +166,7 @@ int main(int argc, char *argv[]) {
         in_addr_t src_addr, dst_addr;
         src_addr = packet[IP_SRC_ADDR_0] | packet[IP_SRC_ADDR_1] << 8 | packet[IP_SRC_ADDR_2] << 16 | packet[IP_SRC_ADDR_3] << 24;
         dst_addr = packet[IP_DST_ADDR_0] | packet[IP_DST_ADDR_1] << 8 | packet[IP_DST_ADDR_2] << 16 | packet[IP_DST_ADDR_3] << 24;
-        printf("Receive packet src = %08x, dst = %08x\n", src_addr, dst_addr);
+        //printf("Receive packet src = %08x, dst = %08x\n", src_addr, dst_addr);
 
 
         // 2. check whether dst is me
@@ -188,7 +194,8 @@ int main(int argc, char *argv[]) {
                     // assemble
                     uint32_t rip_len = assembleRIP(&resp, output + IP_DEFAULT_HEADER_LENGTH + UDP_DEFAULT_HEADER_LENGTH);
                     uint32_t udp_len = assembleUDP(output + IP_DEFAULT_HEADER_LENGTH, rip_len);
-                    uint32_t ip_len = assembleIP(output, dst_addr, src_addr, udp_len);
+                    uint32_t ip_len = assembleIP(output, addrs[if_index], src_addr, udp_len);
+		    printf("ip src = %08x, dst = %08x\n", addrs[if_index], src_addr);
                     // send it back
                     printf("send response to %08x\n", src_addr);
                     HAL_SendIPPacket(if_index, output, ip_len, src_mac);
