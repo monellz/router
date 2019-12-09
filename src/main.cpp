@@ -123,6 +123,7 @@ int main(int argc, char *argv[]) {
         in_addr_t src_addr, dst_addr;
         src_addr = packet[IP_SRC_ADDR_0] | packet[IP_SRC_ADDR_1] << 8 | packet[IP_SRC_ADDR_2] << 16 | packet[IP_SRC_ADDR_3] << 24;
         dst_addr = packet[IP_DST_ADDR_0] | packet[IP_DST_ADDR_1] << 8 | packet[IP_DST_ADDR_2] << 16 | packet[IP_DST_ADDR_3] << 24;
+        printf("Receive packet src = %08x, dst = %08x\n", src_addr, dst_addr);
 
 
         // 2. check whether dst is me
@@ -152,6 +153,7 @@ int main(int argc, char *argv[]) {
                     uint32_t udp_len = assembleUDP(output + IP_DEFAULT_HEADER_LENGTH, rip_len);
                     uint32_t ip_len = assembleIP(output, dst_addr, src_addr, udp_len);
                     // send it back
+                    printf("send response to %08x\n", src_addr);
                     HAL_SendIPPacket(if_index, output, ip_len, src_mac);
                 } else {
                     // 3a.2 response, ref. RFC2453 3.9.2
@@ -163,6 +165,7 @@ int main(int argc, char *argv[]) {
                     // triggered updates? ref. RFC2453 3.10.1
 
                     //TODO: better update
+                    printf("update...\n");
                     RoutingTableEntry entry;
                     entry.if_index = if_index;
                     for (uint32_t i = 0; i < rip.numEntries; ++i) {
@@ -177,6 +180,7 @@ int main(int argc, char *argv[]) {
                 }
             }
         } else {
+            printf("forward\n");
             // 3b.1 dst is not me
             // forward
             // beware of endianness
@@ -194,6 +198,7 @@ int main(int argc, char *argv[]) {
                     // update ttl and checksum
                     forward(output, res);
                     // TODO: you might want to check ttl=0 case
+                    printf("forward sending\n");
                     HAL_SendIPPacket(dest_if, output, res, dest_mac);
                 } else {
                     // not found
