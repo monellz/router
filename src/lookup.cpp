@@ -65,18 +65,6 @@ bool query(uint32_t addr, uint32_t *nexthop, uint32_t *if_index) {
 #include <vector>
 std::vector<RoutingTableEntry> routing_table;
 
-inline uint32_t right_zero(uint32_t x) {
-    int n = 0;
-    uint32_t y = 0xffffffff;
-    y >>= 16; if (!(x & y)) { n += 16; x >>= 16;}
-    y >>= 8; if (!(x & y)) { n += 8; x >>= 8;}
-    y >>= 4; if (!(x & y)) { n += 4; x >>= 4;}
-    y >>= 2; if (!(x & y)) { n += 2; x >>= 2;}
-    y >>= 1; if (!(x & y)) { n += 1; x >>= 1;}
-    if (x == 0) {n += 1;}
-    return n;
-}
-
 /**
  * @brief 插入/删除一条路由表表项
  * @param insert 如果要插入则为 true ，要删除则为 false
@@ -90,9 +78,7 @@ void update(bool insert, const RoutingTableEntry& entry) {
         if (routing_table[i].addr == entry.addr && routing_table[i].len == entry.len) {
             //update
             if (insert) {
-                if (routing_table[i].nexthop == entry.nexthop || routing_table[i].metric > entry.metric) {
-                    routing_table[i] = entry;
-                }
+                routing_table[i] = entry;
             } else {
                 routing_table.erase(routing_table.begin() + i);
             }
@@ -109,19 +95,20 @@ void update(bool insert, const RoutingTableEntry& entry) {
  * @param if_index 如果查询到目标，把表项的 if_index 写入
  * @return 查到则返回 true ，没查到则返回 false
  */
-bool query(uint32_t addr, uint32_t *nexthop, uint32_t *if_index) {
-    //TODO:
+//bool query(uint32_t addr, uint32_t *nexthop, uint32_t *if_index) {
+bool query(uint32_t addr, uint32_t *rte_idx) {
     int max_idx = -1, max_len = 0;
-    for (int i = 0; i< routing_table.size() ; ++i) {
-        int zero_num = right_zero(addr ^ routing_table[i].addr);
-        if (zero_num > max_len) {
-            max_idx = i;
-            max_len = zero_num;
+    for (uint32_t i = 0; i< routing_table.size() ; ++i) {
+        uint32_t mask = ((uint64_t)1 << routing_table[i].len) - 1;
+        if ((addr & mask) == (routing_table[i].addr & mask)) {
+            if (routing_table[i].len > max_len) {
+                max_len = routing_table[i].len;
+                max_idx = i;
+            }
         }
     }
     if (max_idx >= 0) {
-        *nexthop = routing_table[max_idx].nexthop;
-        *if_index = routing_table[max_idx].if_index;
+        *rte_idx = (uint32_t)max_idx;
         return true;
     } else return false;
 }

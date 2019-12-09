@@ -13,6 +13,8 @@
 
 #define RIP_MULTICAST_ADDR 0x090000e0
 
+#define RIP_METRIC_INFINITY 16
+
 typedef struct {
     // all fields are big endian
     // we don't store 'family', as it is always 2(response) and 0(request)
