@@ -168,7 +168,7 @@ int main(int argc, char *argv[]) {
                     for (uint32_t i = 0; i < rip.numEntries; ++i) {
                         entry.addr = rip.entries[i].addr;
                         entry.len = rip.entries[i].mask;
-                        entry.metric = rip.entries[i].metric;
+                        entry.metric = rip.entries[i].metric + 1;
                         entry.nexthop = rip.entries[i].nexthop;
                         entry.timestamp = HAL_GetTicks();
 
