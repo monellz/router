@@ -7,9 +7,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <vector>
 
 extern bool validateIPChecksum(uint8_t *packet, size_t len);
-extern void update(bool insert, RoutingTableEntry entry);
+extern void update(bool insert, const RoutingTableEntry& entry);
 extern bool query(uint32_t addr, uint32_t *nexthop, uint32_t *if_index);
 extern bool forward(uint8_t *packet, size_t len);
 extern bool disassembleRIP(const uint8_t *packet, uint32_t len, RipPacket *output);
@@ -17,8 +18,24 @@ extern uint32_t assembleRIP(const RipPacket *rip, uint8_t *buffer);
 extern uint32_t assembleUDP(uint8_t *buffer, uint32_t data_len);
 extern uint32_t assembleIP(uint8_t *buffer, uint32_t src_addr, uint32_t dst_addr, uint32_t data_len);
 
+extern std::vector<RoutingTableEntry> routing_table;
 void fillRipPacket(RipPacket *packet) {
+    //for response
+    //TODO
+    uint32_t entry_num = routing_table.size();
+    if (entry_num > RIP_MAX_ENTRY) {
+        printf("Warning! table entry num is larger than RIP_MAX_ENTRY\n");
+        entry_num = RIP_MAX_ENTRY;
+    }
 
+    packet->numEntries = entry_num;
+    packet->command = RIP_CMD_RESPONSE;
+    for (uint32_t i = 0; i < entry_num; ++i) {
+        packet->entries[i].addr = routing_table[i].addr;
+        packet->entries[i].mask = routing_table[i].len;
+        packet->entries[i].metric = routing_table[i].metric;
+        packet->entries[i].nexthop = routing_table[i].nexthop;
+    }
 }
 
 
@@ -46,10 +63,12 @@ int main(int argc, char *argv[]) {
     // 10.0.3.0/24 if 3
     for (uint32_t i = 0; i < N_IFACE_ON_BOARD; i++) {
         RoutingTableEntry entry = {
-            .addr = addrs[i], // big endian
+            .addr = addrs[i] & 0x00ffffff, // big endian
             .len = 24,        // small endian
             .if_index = i,    // small endian
-            .nexthop = 0      // big endian, means direct
+            .nexthop = 0,      // big endian, means direct
+            .metric = 0,
+            .timestamp = HAL_GetTicks()
         };
         update(true, entry);
     }
@@ -63,7 +82,15 @@ int main(int argc, char *argv[]) {
             // ref. RFC2453 3.8
             printf("30s Timer, Send Response for all interfaces\n");
             for (uint32_t i = 0; i < N_IFACE_ON_BOARD; i++) {
-                
+                RipPacket resp;
+                fillRipPacket(&resp);
+                uint32_t rip_len = assembleRIP(&resp, output + IP_DEFAULT_HEADER_LENGTH + UDP_DEFAULT_HEADER_LENGTH);
+                uint32_t udp_len = assembleUDP(output + IP_DEFAULT_HEADER_LENGTH, rip_len);
+                uint32_t ip_len = assembleIP(output, RIP_MULTICAST_ADDR, addrs[i], udp_len);
+                macaddr_t multicast_dst;
+                HAL_ArpGetMacAddress(i, RIP_MULTICAST_ADDR, multicast_dst);
+                HAL_SendIPPacket(i, output, ip_len, multicast_dst);   
+                printf("Send for interfaces %d\n", i);
             }
 
             last_time = time;
@@ -134,6 +161,19 @@ int main(int argc, char *argv[]) {
                     // what is missing from RoutingTableEntry?
                     // TODO: use query and update
                     // triggered updates? ref. RFC2453 3.10.1
+
+                    //TODO: better update
+                    RoutingTableEntry entry;
+                    entry.if_index = if_index;
+                    for (uint32_t i = 0; i < rip.numEntries; ++i) {
+                        entry.addr = rip.entries[i].addr;
+                        entry.len = rip.entries[i].mask;
+                        entry.metric = rip.entries[i].metric;
+                        entry.nexthop = rip.entries[i].nexthop;
+                        entry.timestamp = HAL_GetTicks();
+
+                        update(true, entry);
+                    }
                 }
             }
         } else {

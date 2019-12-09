@@ -1,4 +1,5 @@
-#ifndef __RIP_H
+#ifndef __RIP_
+#define __RIP_
 #include <stdint.h>
 #define RIP_MAX_ENTRY 25
 

@@ -21,7 +21,7 @@
 */
 
 
-//#define NAIVE
+#define NAIVE
 
 #ifndef NAIVE
 #include <assert.h>
@@ -85,12 +85,17 @@ inline uint32_t right_zero(uint32_t x) {
  * 插入时如果已经存在一条 addr 和 len 都相同的表项，则替换掉原有的。
  * 删除时按照 addr 和 len 匹配。
  */
-void update(bool insert, RoutingTableEntry entry) {
+void update(bool insert, const RoutingTableEntry& entry) {
     for (int i = 0; i < routing_table.size(); ++i) {
         if (routing_table[i].addr == entry.addr && routing_table[i].len == entry.len) {
             //update
-            if (insert) routing_table[i] = entry;
-            else routing_table.erase(routing_table.begin() + i);
+            if (insert) {
+                if (routing_table[i].nexthop == entry.nexthop || routing_table[i].metric > entry.metric) {
+                    routing_table[i] = entry;
+                }
+            } else {
+                routing_table.erase(routing_table.begin() + i);
+            }
             return;
         }   
     }
@@ -105,6 +110,7 @@ void update(bool insert, RoutingTableEntry entry) {
  * @return 查到则返回 true ，没查到则返回 false
  */
 bool query(uint32_t addr, uint32_t *nexthop, uint32_t *if_index) {
+    //TODO:
     int max_idx = -1, max_len = 0;
     for (int i = 0; i< routing_table.size() ; ++i) {
         int zero_num = right_zero(addr ^ routing_table[i].addr);
