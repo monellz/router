@@ -27,9 +27,9 @@ uint8_t output[2048];
 // 1: 10.0.1.1
 // 2: 10.0.2.1
 // 3: 10.0.3.1
-// 你可以按需进行修改，注意端序
 //in_addr_t addrs[N_IFACE_ON_BOARD] = {0x0100000a, 0x0101000a, 0x0102000a, 0x0103000a};
-in_addr_t addrs[N_IFACE_ON_BOARD] = {0x21002a0a, 0x0101000a, 0x0102000a, 0x0103000a};
+in_addr_t addrs[N_IFACE_ON_BOARD] = {0xf31bfea9, 0x0303000a, 0x0203000a, 0x0103000a};
+uint32_t addrs_len[N_IFACE_ON_BOARD] = {16, 24, 24, 24};
 
 void fillRipPacket(RipPacket *packet) {
     //for response
@@ -52,6 +52,14 @@ void fillRipPacket(RipPacket *packet) {
         packet->entries[i].nexthop = routing_table[i].nexthop;
     }
 }
+void printEntry(const RoutingTableEntry& entry) {
+    uint32_t mask = ~(((uint64_t)1 << entry.len) - 1);
+    printf("Entry: addr = %3d.%3d.%3d.%3d, mask = %3d.%3d.%3d.%3d, nexthop = %3d.%3d.%3d.%3d, metric = %d\n",
+            entry.addr & 0xff, (entry.addr >> 8) & 0xff, (entry.addr >> 16) & 0xff, (entry.addr >> 24) & 0xff,
+            mask & 0xff, (mask >> 8) & 0xff, (mask >> 16) & 0xff, (mask >> 24) & 0xff,
+            entry.nexthop & 0xff, (entry.nexthop >> 8) & 0xff, (entry.nexthop >> 16) & 0xff, (entry.nexthop >> 24) & 0xff,
+            entry.metric);
+}
 
 inline uint32_t clz(uint32_t x) {
     uint32_t n = 32, y;
@@ -65,6 +73,16 @@ inline uint32_t clz(uint32_t x) {
 
 void trigger_one(const RoutingTableEntry& entry) {
     printf("trigger update for one entry\n");
+    printEntry(entry);
+	RipPacket resp;
+	resp.numEntries = 1;
+	resp.command = RIP_CMD_RESPONSE;
+	resp.entries[0].addr = entry.addr;
+	resp.entries[0].mask = ~(((uint64_t)1 << entry.len) - 1);
+	resp.entries[0].metric = entry.metric;
+	resp.entries[0].nexthop = entry.nexthop;
+	uint32_t rip_len = assembleRIP(&resp, output + IP_DEFAULT_HEADER_LENGTH + UDP_DEFAULT_HEADER_LENGTH);
+	uint32_t udp_len = assembleUDP(output + IP_DEFAULT_HEADER_LENGTH, rip_len);
     for (uint32_t i = 0; i < N_IFACE_ON_BOARD; i++) {
         RipPacket resp;
         resp.numEntries = 1;
@@ -79,7 +97,6 @@ void trigger_one(const RoutingTableEntry& entry) {
         macaddr_t multicast_dst;
         HAL_ArpGetMacAddress(i, RIP_MULTICAST_ADDR, multicast_dst);
         HAL_SendIPPacket(i, output, ip_len, multicast_dst);   
-        printf("Send for interfaces %d\n", i);
     }
 }
 
@@ -95,7 +112,19 @@ void trigger_all() {
         macaddr_t multicast_dst;
         HAL_ArpGetMacAddress(i, RIP_MULTICAST_ADDR, multicast_dst);
         HAL_SendIPPacket(i, output, ip_len, multicast_dst);   
-        printf("Send for interfaces %d\n", i);
+    }
+}
+void printAddr(uint32_t addr) {
+    printf("%3d.%03d.%03d.%03d", addr & 0xff, (addr >> 8) & 0xff, (addr >> 16) & 0xff, (addr >> 24) & 0xff);
+}
+
+void printRoutingTable() {
+    for (int i = 0; i < routing_table.size(); ++i) {
+	printAddr(routing_table[i].addr);
+	printf(", ");
+	printAddr(routing_table[i].nexthop);
+	printf(", ");
+	printf("%d\n", routing_table[i].metric);
     }
 }
 
@@ -117,7 +146,7 @@ int main(int argc, char *argv[]) {
         RoutingTableEntry entry = {
             //.addr = addrs[i] & 0x00ffffff, // big endian
             .addr = addrs[i], // big endian
-            .len = 24,        // small endian
+            .len = addrs_len[i],        // small endian
             .if_index = i,    // small endian
             .nexthop = 0,      // big endian, means direct
             .metric = 1,
@@ -135,6 +164,7 @@ int main(int argc, char *argv[]) {
             // ref. RFC2453 3.8
             printf("30s Timer, Send Response for all interfaces\n");
             trigger_all();
+	    printRoutingTable();
 
             last_time = time;
         }
@@ -234,7 +264,9 @@ int main(int argc, char *argv[]) {
                 }
             }
         } else {
-            printf("forward\n");
+            printf("forward the dst is ");
+	    printAddr(dst_addr);
+	    printf("\n");
             // 3b.1 dst is not me
             // forward
             // beware of endianness
@@ -265,7 +297,10 @@ int main(int argc, char *argv[]) {
             } else {
                 // not found
                 // optionally you can send ICMP Host Unreachable
-                printf("IP not found for %x\n", src_addr);
+                //printf("IP not found for %x\n", src_addr);
+		printf("IP not found for ");
+		printAddr(src_addr);
+		printf("\n");
             }
         }
     }

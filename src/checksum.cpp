@@ -22,7 +22,7 @@ bool validateIPChecksum(uint8_t *packet, size_t len) {
     return original_check_sum == ~check_sum % 0xffff;
 }
 
-uint16_t calculateIPChecksum(uint8_t *packet, size_t len) {
+uint16_t updateIPChecksum(uint8_t *packet, size_t len) {
     uint16_t original_check_sum = (packet[IP_HEADER_CHECKSUM_0] << 8) | packet[IP_HEADER_CHECKSUM_1];
     size_t header_byte_len = (packet[IP_VERSION_HEADER_LENGTH] & 0x0f) << 2;
     packet[IP_HEADER_CHECKSUM_0] = packet[IP_HEADER_CHECKSUM_1] = 0x00;
@@ -33,7 +33,8 @@ uint16_t calculateIPChecksum(uint8_t *packet, size_t len) {
     while (check_sum >> 16) {
         check_sum = (check_sum & 0xffff) + (check_sum >> 16);
     }   
-    packet[IP_HEADER_CHECKSUM_0] = original_check_sum >> 8;
-    packet[IP_HEADER_CHECKSUM_1] = original_check_sum & 0xff;
-    return ~check_sum % 0xffff;
+    check_sum = ~check_sum;
+    packet[IP_HEADER_CHECKSUM_0] = check_sum >> 8;
+    packet[IP_HEADER_CHECKSUM_1] = check_sum & 0xff;
+    return check_sum % 0xffff;
 }

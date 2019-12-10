@@ -2,7 +2,7 @@
 #include "udp.h"
 #include "ip.h"
 
-extern uint16_t calculateIPChecksum(uint8_t *packet, size_t len);
+extern uint16_t updateIPChecksum(uint8_t *packet, size_t len);
 /*
   在头文件 rip.h 中定义了如下的结构体：
   #define RIP_MAX_ENTRY 25
@@ -147,6 +147,6 @@ uint32_t assembleIP(uint8_t *buffer, uint32_t src_addr, uint32_t dst_addr, uint3
     buffer[IP_DST_ADDR_2] = (dst_addr >> 16) & 0xff;
     buffer[IP_DST_ADDR_3] = (dst_addr >> 24) & 0xff;
 
-    calculateIPChecksum(buffer, IP_DEFAULT_HEADER_LENGTH);
+    updateIPChecksum(buffer, IP_DEFAULT_HEADER_LENGTH);
     return data_len + IP_DEFAULT_HEADER_LENGTH;
 }
