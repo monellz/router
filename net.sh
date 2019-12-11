@@ -16,14 +16,14 @@ if [ -z $1 ]; then
     sudo ip link add r2r3-r2 type veth peer name r2r3-r3
     sudo ip link add r3pc2-r3 type veth peer name r3pc2-pc2
 
-    sudo ip link set pc1r1-pc1 pc1 
-    sudo ip link set pc1r1-r1 r1
-    sudo ip link set r1r2-r1 r1
-    sudo ip link set r1r2-r2 r2
-    sudo ip link set r2r3-r2 r2
-    sudo ip link set r2r3-r3 r3
-    sudo ip link set r3pc2-r3 r3
-    sudo ip link set r3pc2-pc2 pc2
+    sudo ip link set pc1r1-pc1 netns pc1 
+    sudo ip link set pc1r1-r1 netns r1
+    sudo ip link set r1r2-r1 netns r1
+    sudo ip link set r1r2-r2 netns r2
+    sudo ip link set r2r3-r2 netns r2
+    sudo ip link set r2r3-r3 netns r3
+    sudo ip link set r3pc2-r3 netns r3
+    sudo ip link set r3pc2-pc2 netns pc2
 
     sudo ip netns exec pc1 ip link set pc1r1-pc1 up
     sudo ip netns exec pc1 ip addr add 192.168.1.2/24 dev pc1r1-pc1
