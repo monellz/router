@@ -54,12 +54,20 @@ line:
 	sudo ip netns exec pc1 ip link set pc1r1-pc1 up
 	sudo ip netns exec pc1 ip addr add 192.168.1.2/24 dev pc1r1-pc1
 	sudo ip netns exec pc1 ip route add default via 192.168.1.1 dev pc1r1-pc1
+	sudo ip netns exec pc1 ethtool -K pc1r1-pc1 tx off
 	sudo ip netns exec r1 ip link set pc1r1-r1 up
 	sudo ip netns exec r1 ip link set r1r2-r1 up
+	sudo ip netns exec r1 ethtool -K pc1r1-r1 tx off
+	sudo ip netns exec r1 ethtool -K r1r2-r1 tx off
 	sudo ip netns exec r2 ip link set r1r2-r2 up
 	sudo ip netns exec r2 ip link set r2r3-r2 up
+	sudo ip netns exec r2 ethtool -K r1r2-r2 tx off
+	sudo ip netns exec r2 ethtool -K r2r3-r2 tx off
 	sudo ip netns exec r3 ip link set r2r3-r3 up
 	sudo ip netns exec r3 ip link set r3pc2-r3 up
+	sudo ip netns exec r3 ethtool -K r2r3-r3 tx off
+	sudo ip netns exec r3 ethtool -K r3pc2-r3 tx off
 	sudo ip netns exec pc2 ip link set r3pc2-pc2 up
 	sudo ip netns exec pc2 ip addr add 192.168.5.1/24 dev r3pc2-pc2
 	sudo ip netns exec pc2 ip route add default via 192.168.5.2 dev r3pc2-pc2
+	sudo ip netns exec pc2 ethtool -K r3pc2-pc2 tx off
