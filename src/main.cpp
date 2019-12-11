@@ -13,10 +13,8 @@
 uint8_t packet[2048];
 uint8_t output[2048];
 
-//in_addr_t addrs[N_IFACE_ON_BOARD] = {0x0100000a, 0x0101000a, 0x0102000a, 0x0103000a};
-//in_addr_t addrs[N_IFACE_ON_BOARD] = {0xf31bfea9, 0x0303000a, 0x0203000a, 0x0103000a};
-//in_addr_t addrs[N_IFACE_ON_BOARD] = {0x21002a0a, 0x0303000a, 0x0203000a, 0x0103000a};
-in_addr_t addrs[N_IFACE_ON_BOARD] = {0x0201a8c0, 0x0102a8c0, 0x0203000a, 0x0103000a};
+//in_addr_t addrs[N_IFACE_ON_BOARD] = {0x0201a8c0, 0x0102a8c0, 0x0203000a, 0x0103000a};
+in_addr_t addrs[N_IFACE_ON_BOARD] = {0x0203a8c0, 0x0104a8c0, 0x0205000a, 0x0104000a};
 //uint32_t addrs_len[N_IFACE_ON_BOARD] = {16, 24, 24, 24};
 uint32_t addrs_len[N_IFACE_ON_BOARD] = {24, 24, 24, 24};
 
@@ -133,7 +131,7 @@ int main(int argc, char *argv[]) {
         in_addr_t src_addr, dst_addr;
         src_addr = packet[IP_SRC_ADDR_0] | packet[IP_SRC_ADDR_1] << 8 | packet[IP_SRC_ADDR_2] << 16 | packet[IP_SRC_ADDR_3] << 24;
         dst_addr = packet[IP_DST_ADDR_0] | packet[IP_DST_ADDR_1] << 8 | packet[IP_DST_ADDR_2] << 16 | packet[IP_DST_ADDR_3] << 24;
-        printf("Receive packet src = %08x, dst = %08x\n", src_addr, dst_addr);
+        printf("Receive validated packet src = %d.%d.%d.%d, dst = %d.%d.%d.%d\n", IPFORMAT(src_addr), IPFORMAT(dst_addr));
 
 
         // 2. check whether dst is me
@@ -153,7 +151,7 @@ int main(int argc, char *argv[]) {
             // check and validate
             if (disassemble_rip(packet, res, &rip)) {
                 if (rip.command == RIP_CMD_REQUEST) {
-                    printf("Receive Request from %d.%d.%d.%d to %d.%d.%d.%d\n", IPFORMAT(src_addr), IPFORMAT(dst_addr));
+                    printf("RIP Request from %d.%d.%d.%d to %d.%d.%d.%d\n", IPFORMAT(src_addr), IPFORMAT(dst_addr));
                     // 3a.3 request, ref. RFC2453 3.9.1
                     // only need to respond to whole table requests in the lab
                     RipPacket resp;
@@ -166,7 +164,7 @@ int main(int argc, char *argv[]) {
                     printf("Send Response to %d.%d.%d.%d\n", IPFORMAT(src_addr));
                     HAL_SendIPPacket(if_index, output, ip_len, src_mac);
                 } else {
-                    printf("Receive Response from %d.%d.%d.%d to %d.%d.%d.%d, entry_num = %d\n", IPFORMAT(src_addr), IPFORMAT(dst_addr), rip.numEntries);
+                    printf("RIP Response from %d.%d.%d.%d to %d.%d.%d.%d, entry_num = %d\n", IPFORMAT(src_addr), IPFORMAT(dst_addr), rip.numEntries);
                     // 3a.2 response, ref. RFC2453 3.9.2
                     // update routing table
                     // new metric = ?
@@ -177,7 +175,7 @@ int main(int argc, char *argv[]) {
                     uint32_t query_nexthop, query_if_index, query_metric;
                     for (uint32_t i = 0; i < rip.numEntries; ++i) {
                         bool is_time_to_trigger = HAL_GetTicks() > trigger_last_time + 1 * 1000;
-                        uint32_t new_metric = rip.entries[i].metric + 1 >= RIP_METRIC_INFINITY ? RIP_METRIC_INFINITY: rip.entries[i].metric + 1;
+                        uint32_t new_metric = (rip.entries[i].metric + 1 >= RIP_METRIC_INFINITY)? RIP_METRIC_INFINITY: rip.entries[i].metric + 1;
                         uint32_t mask_len = mask_len_from_mask_right(rip.entries[i].mask);
                         //printf("prepare to query %d.%d.%d.%d\n", IPFORMAT(rip.entries[i].addr));
                         if (route_query(rip.entries[i].addr, &query_nexthop, &query_if_index, &query_metric)) {
@@ -203,6 +201,8 @@ int main(int argc, char *argv[]) {
                         }
                     }
                 }
+            } else {
+                printf("Warning, assemble RIP failed\n");
             }
         } else {
             printf("Forward, Packet is from %d.%d.%d.%d:%d to %d.%d.%d.%d\n", IPFORMAT(src_addr), if_index, IPFORMAT(dst_addr));

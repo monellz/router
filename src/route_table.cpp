@@ -1,7 +1,5 @@
 #include "route_table.h"
 
-#include <assert.h>
-
 
 Entry elem[ROUTE_MAX];
 uint32_t last[33][ROUTE_MOD] = {{0}}, elem_last = 0;
@@ -62,6 +60,7 @@ void route_delete(uint32_t dst_addr, uint32_t mask_len) {
 }
 
 bool route_query(uint32_t addr, uint32_t *nexthop, uint32_t *if_index, uint32_t *metric) {
+    #pragma unroll
     for (uint32_t i = 0; i < 33; ++i) {
         uint32_t mask_len = 32 - i;
         uint32_t mask = mask_right(mask_len);

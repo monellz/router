@@ -2,8 +2,8 @@
 
 // configure this to match the output of `ip a`
 const char *interfaces[N_IFACE_ON_BOARD] = {
-    "pc1r-r",
-    "pc2r-r",
+    "eth1",
     "eth2",
     "eth3",
+    "eth4",
 };
