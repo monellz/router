@@ -238,8 +238,8 @@ int main(int argc, char *argv[]) {
                 printf("IP network not found for %d.%d.%d.%d\n", IPFORMAT(dst_addr));
                 printf("Send ICMP Destination Network Unreachable to %d.%d.%d.%d\n", IPFORMAT(src_addr));
                 uint32_t icmp_len = assemble_icmp(output + IP_DEFAULT_HEADER_LENGTH, ICMP_TYPE_DEST_UNREACHABLE, ICMP_CODE_NETWORK_UNREACHABLE, packet);
-                uint32_t ip_len = assemble_ip(packet, addrs[if_index], src_addr, icmp_len, IP_PROTOCOL_ICMP);
-                HAL_SendIPPacket(if_index, packet, ip_len, src_mac);
+                uint32_t ip_len = assemble_ip(output, addrs[if_index], src_addr, icmp_len, IP_PROTOCOL_ICMP);
+                HAL_SendIPPacket(if_index, output, ip_len, src_mac);
             }
         }
     }
