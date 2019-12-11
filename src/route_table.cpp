@@ -77,11 +77,12 @@ bool route_query(uint32_t addr, uint32_t *nexthop, uint32_t *if_index, uint32_t 
     return false;    
 }
 
-void route_fill_rip_packet(RipPacket *packet) {
+void route_fill_rip_packet(RipPacket *packet, uint32_t if_index) {
     //response
     uint32_t entry_num = 0; 
     packet->command = RIP_CMD_RESPONSE;
     for (uint32_t idx = 1; idx <= elem_last; ++idx) {
+        if (if_index == elem[idx].if_index) continue;
         //assume there is not duplicate entry
         //it needs support of DELETE
         packet->entries[entry_num].addr = elem[idx].addr;
