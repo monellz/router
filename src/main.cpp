@@ -20,18 +20,17 @@ in_addr_t addrs[N_IFACE_ON_BOARD] = {0x0203a8c0, 0x0104a8c0, 0x0205000a, 0x01040
 
 void trigger_one(uint32_t addr, uint32_t mask_len, uint32_t nexthop, uint32_t if_index, uint32_t metric) {
     route_print(addr, mask_len, nexthop, if_index, metric, "trigger one");
-	RipPacket resp;
-	resp.numEntries = 1;
-	resp.command = RIP_CMD_RESPONSE;
-	resp.entries[0].addr = addr;
-	resp.entries[0].mask = mask_right(mask_len);
-	resp.entries[0].metric = metric;
-	resp.entries[0].nexthop = nexthop;
-	uint32_t rip_len = assemble_rip(&resp, output + IP_DEFAULT_HEADER_LENGTH + UDP_DEFAULT_HEADER_LENGTH);
-	uint32_t udp_len = assemble_udp(output + IP_DEFAULT_HEADER_LENGTH, rip_len);
+    RipPacket resp;
+    resp.numEntries = 1;
+    resp.command = RIP_CMD_RESPONSE;
     macaddr_t multicast_dst;
     for (uint32_t i = 0; i < N_IFACE_ON_BOARD; i++) {
-        if (if_index == i) continue;
+        resp.entries[0].addr = addr;
+        resp.entries[0].mask = mask_right(mask_len);
+        resp.entries[0].metric = if_index == i? RIP_METRIC_INFINITY: metric;
+        resp.entries[0].nexthop = nexthop;
+        uint32_t rip_len = assemble_rip(&resp, output + IP_DEFAULT_HEADER_LENGTH + UDP_DEFAULT_HEADER_LENGTH);
+        uint32_t udp_len = assemble_udp(output + IP_DEFAULT_HEADER_LENGTH, rip_len);
         uint32_t ip_len = assemble_ip(output, addrs[i], RIP_MULTICAST_ADDR, udp_len, IP_PROTOCOL_UDP, 1);
         HAL_ArpGetMacAddress(i, RIP_MULTICAST_ADDR, multicast_dst);
         HAL_SendIPPacket(i, output, ip_len, multicast_dst);   

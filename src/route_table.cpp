@@ -82,12 +82,11 @@ void route_fill_rip_packet(RipPacket *packet, uint32_t if_index) {
     uint32_t entry_num = 0; 
     packet->command = RIP_CMD_RESPONSE;
     for (uint32_t idx = 1; idx <= elem_last; ++idx) {
-        if (if_index == elem[idx].if_index) continue;
         //assume there is not duplicate entry
         //it needs support of DELETE
         packet->entries[entry_num].addr = elem[idx].addr;
         packet->entries[entry_num].mask = mask_right(elem[idx].mask_len);
-        packet->entries[entry_num].metric = elem[idx].metric;
+        packet->entries[entry_num].metric = if_index == elem[idx].if_index? RIP_METRIC_INFINITY: elem[idx].metric;
         packet->entries[entry_num].nexthop = elem[idx].nexthop;
         entry_num++;
     }
