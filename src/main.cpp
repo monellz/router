@@ -15,8 +15,10 @@ uint8_t output[2048];
 
 //in_addr_t addrs[N_IFACE_ON_BOARD] = {0x0100000a, 0x0101000a, 0x0102000a, 0x0103000a};
 //in_addr_t addrs[N_IFACE_ON_BOARD] = {0xf31bfea9, 0x0303000a, 0x0203000a, 0x0103000a};
-in_addr_t addrs[N_IFACE_ON_BOARD] = {0x21002a0a, 0x0303000a, 0x0203000a, 0x0103000a};
-uint32_t addrs_len[N_IFACE_ON_BOARD] = {16, 24, 24, 24};
+//in_addr_t addrs[N_IFACE_ON_BOARD] = {0x21002a0a, 0x0303000a, 0x0203000a, 0x0103000a};
+in_addr_t addrs[N_IFACE_ON_BOARD] = {0x0201a8c0, 0x0102a8c0, 0x0203000a, 0x0103000a};
+//uint32_t addrs_len[N_IFACE_ON_BOARD] = {16, 24, 24, 24};
+uint32_t addrs_len[N_IFACE_ON_BOARD] = {24, 24, 24, 24};
 
 void trigger_one(uint32_t addr, uint32_t mask_len, uint32_t nexthop, uint32_t if_index, uint32_t metric) {
     route_print(addr, mask_len, nexthop, if_index, metric, "trigger one");
@@ -106,13 +108,17 @@ int main(int argc, char *argv[]) {
         int if_index;
         res = HAL_ReceiveIPPacket(mask, packet, sizeof(packet), src_mac, dst_mac, 1000, &if_index);
         if (res == HAL_ERR_EOF) {
+            printf("HAL_ERR_EOF\n");
             break;
         } else if (res < 0) {
+            printf("Receive res < 0\n");
             return res;
         } else if (res == 0) {
+            printf("Receive timeout\n");
             // Timeout
             continue;
         } else if (res > sizeof(packet)) {
+            printf("Received packet is trucated, ignore\n");
             // packet is truncated, ignore it
             continue;
         }
@@ -127,7 +133,7 @@ int main(int argc, char *argv[]) {
         in_addr_t src_addr, dst_addr;
         src_addr = packet[IP_SRC_ADDR_0] | packet[IP_SRC_ADDR_1] << 8 | packet[IP_SRC_ADDR_2] << 16 | packet[IP_SRC_ADDR_3] << 24;
         dst_addr = packet[IP_DST_ADDR_0] | packet[IP_DST_ADDR_1] << 8 | packet[IP_DST_ADDR_2] << 16 | packet[IP_DST_ADDR_3] << 24;
-        //printf("Receive packet src = %08x, dst = %08x\n", src_addr, dst_addr);
+        printf("Receive packet src = %08x, dst = %08x\n", src_addr, dst_addr);
 
 
         // 2. check whether dst is me
@@ -206,6 +212,7 @@ int main(int argc, char *argv[]) {
             uint32_t nexthop, dest_if, metric;
             if (route_query(dst_addr, &nexthop, &dest_if, &metric)) {
                 //found
+                printf("Route found dst_addr=%d.%d.%d.%d, nexthop=%d.%d.%d.%d, dest_if=%d, metric=%d\n", IPFORMAT(dst_addr), IPFORMAT(nexthop), dest_if, metric);
                 macaddr_t dest_mac;
                 if (nexthop == 0) nexthop = dst_addr;
                 if (HAL_ArpGetMacAddress(dest_if, nexthop, dest_mac) == 0) {
@@ -221,6 +228,7 @@ int main(int argc, char *argv[]) {
                         uint32_t ip_len = assemble_ip(packet, addrs[if_index], src_addr, icmp_len, IP_PROTOCOL_ICMP);
                         HAL_SendIPPacket(if_index, packet, ip_len, src_mac);
                     } else {
+                        printf("Forward send to %d.%d.%d.%d, if_index is %d\n",IPFORMAT(dst_addr), dest_if); 
                         HAL_SendIPPacket(dest_if, output, res, dest_mac);
                     }
                 } else {
