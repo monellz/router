@@ -11,7 +11,7 @@
 #define IP_IDENTIFIER_1             5
 #define IP_FLAGS_FRAMENTED_OFFSET_0 6
 #define IP_FLAGS_FRAMENTED_OFFSET_1 7
-#define IP_TTL                      8
+#define IP_TTL_                     8   //there is a conflict 
 #define IP_PROTOCOL                 9
 #define IP_HEADER_CHECKSUM_0        10
 #define IP_HEADER_CHECKSUM_1        11
@@ -30,6 +30,7 @@
 #define IP_DEFAULT_TTL                      64
 
 #define IP_PROTOCOL_UDP                     17
+#define IP_PROTOCOL_ICMP                    1
 
 
 #endif

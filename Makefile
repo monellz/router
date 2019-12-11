@@ -6,7 +6,7 @@ INCLUDE = include
 CXXFLAGS = -O3 --std=c++11 -I $(INCLUDE) -I $(LIB_INCLUDE) -DROUTER_BACKEND_$(BACKEND)
 LDFLAGS = -lpcap
 
-COMPILATION = $(wildcard $(SRC_ROOT)/**.cpp)
+COMPILATION = $(wildcard $(SRC_ROOT)/*.cpp)
 OBJ = $(COMPILATION:.cpp=.o)
 
 
