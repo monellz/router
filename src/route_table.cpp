@@ -4,6 +4,7 @@
 Entry elem[ROUTE_MAX];
 uint32_t last[33][ROUTE_MOD] = {{0}}, elem_last = 0;
 //0 is invalid
+uint32_t valid_mask_len = 0; //just for speeding up
 
 uint32_t mask_right(uint32_t mask_len) {
     return ((uint64_t)1 << mask_len) - 1;
@@ -28,6 +29,7 @@ uint32_t mask_len_from_mask_right(uint32_t mask) {
 void route_insert(uint32_t dst_addr, uint32_t mask_len, uint32_t if_index, uint32_t nexthop, uint32_t metric) {
     uint32_t mask = mask_right(mask_len);
     uint32_t key = (dst_addr & mask) % ROUTE_MOD;
+    valid_mask_len = mask_len > valid_mask_len? mask_len: valid_mask_len;
     bool found = false;
     for (uint32_t i = last[mask_len][key]; i != 0; i = elem[i].next) {
         if (elem[i].addr == dst_addr && elem[i].mask_len == mask_len) {
@@ -62,8 +64,8 @@ void route_delete(uint32_t dst_addr, uint32_t mask_len) {
 
 bool route_query(uint32_t addr, uint32_t *nexthop, uint32_t *if_index, uint32_t *metric) {
     #pragma unroll
-    for (uint32_t i = 0; i < 33; ++i) {
-        uint32_t mask_len = 32 - i;
+    //for (uint32_t i = 0; i < 32; ++i) {
+    for (uint32_t mask_len = valid_mask_len; mask_len > 0; mask_len--) {
         uint32_t mask = mask_right(mask_len);
         for (uint32_t idx = last[mask_len][(addr & mask) % ROUTE_MOD]; idx != 0; idx = elem[idx].next) {
             if ((addr & mask) == (elem[idx].addr & mask)) {
