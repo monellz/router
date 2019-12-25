@@ -43,6 +43,7 @@ void route_insert(uint32_t dst_addr, uint32_t mask_len, uint32_t if_index, uint3
 }
 
 void route_delete(uint32_t dst_addr, uint32_t mask_len) {
+    //NOT SUPPORT DELETE NOW
     /*
     uint32_t mask = mask_right(mask_len);
     uint32_t key = (dst_addr & mask) % ROUTE_MOD;
@@ -77,11 +78,11 @@ bool route_query(uint32_t addr, uint32_t *nexthop, uint32_t *if_index, uint32_t 
     return false;    
 }
 
-void route_fill_rip_packet(RipPacket *packet, uint32_t if_index) {
+void route_fill_rip_packet(RipPacket *packet, uint32_t num_offset, uint32_t if_index) {
     //response
     uint32_t entry_num = 0; 
     packet->command = RIP_CMD_RESPONSE;
-    for (uint32_t idx = 1; idx <= elem_last; ++idx) {
+    for (uint32_t idx = 1 + num_offset; idx <= elem_last && idx <= RIP_MAX_ENTRY + num_offset; ++idx) {
         //assume there is not duplicate entry
         //it needs support of DELETE
         packet->entries[entry_num].addr = elem[idx].addr;
@@ -91,9 +92,12 @@ void route_fill_rip_packet(RipPacket *packet, uint32_t if_index) {
         entry_num++;
     }
     packet->numEntries = entry_num;
+
+    /*
     if (entry_num > RIP_MAX_ENTRY) {
         printf("Warning! table entry num is larger than RIP_MAX_ENTRY(%d)\n", RIP_MAX_ENTRY);
     }
+    */
 }
 
 
@@ -102,7 +106,10 @@ void route_print(uint32_t addr, uint32_t mask_len, uint32_t nexthop, uint32_t if
 }
 
 void route_print_all(const char *info) {
-    for (uint32_t idx = 1; idx <= elem_last; ++idx) {
-        route_print(elem[idx].addr, elem[idx].mask_len, elem[idx].nexthop, elem[idx].if_index, elem[idx].metric, info);
+    printf("Route num is %d\n", elem_last);
+    if (elem_last <= RIP_MAX_ENTRY) {
+        for (uint32_t idx = 1; idx <= elem_last; ++idx) {
+            route_print(elem[idx].addr, elem[idx].mask_len, elem[idx].nexthop, elem[idx].if_index, elem[idx].metric, info);
+        }
     }
 }

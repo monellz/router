@@ -20,6 +20,8 @@ struct Entry {
     uint32_t next; //next entry
 };
 
+extern uint32_t elem_last;
+#define route_num() (elem_last)
 
 uint32_t mask_right(uint32_t mask_len);
 uint32_t mask_left(uint32_t mask_len);
@@ -33,6 +35,6 @@ bool route_query(uint32_t addr, uint32_t *nexthop, uint32_t *if_index, uint32_t 
 void route_print(uint32_t addr, uint32_t mask_len, uint32_t nexthop, uint32_t if_index, uint32_t metric, const char *info);
 void route_print_all(const char *info);
 
-void route_fill_rip_packet(RipPacket *packet, uint32_t if_index);
+void route_fill_rip_packet(RipPacket *packet, uint32_t num_offset, uint32_t if_index);
 
 #endif

@@ -42,12 +42,15 @@ void trigger_all() {
     RipPacket resp;
     macaddr_t multicast_dst;
     for (uint32_t i = 0; i < N_IFACE_ON_BOARD; i++) {
-        route_fill_rip_packet(&resp, i);
-        uint32_t rip_len = assemble_rip(&resp, output + IP_DEFAULT_HEADER_LENGTH + UDP_DEFAULT_HEADER_LENGTH);
-        uint32_t udp_len = assemble_udp(output + IP_DEFAULT_HEADER_LENGTH, rip_len);
-        uint32_t ip_len = assemble_ip(output, addrs[i], RIP_MULTICAST_ADDR, udp_len, IP_PROTOCOL_UDP, 1);
         HAL_ArpGetMacAddress(i, RIP_MULTICAST_ADDR, multicast_dst);
-        HAL_SendIPPacket(i, output, ip_len, multicast_dst);   
+        uint32_t rip_len, udp_len, ip_len;
+        for (uint32_t offset = 0; offset < route_num(); offset += 25) {
+            route_fill_rip_packet(&resp, offset, i);
+            rip_len = assemble_rip(&resp, output + IP_DEFAULT_HEADER_LENGTH + UDP_DEFAULT_HEADER_LENGTH);
+            udp_len = assemble_udp(output + IP_DEFAULT_HEADER_LENGTH, rip_len);
+            ip_len = assemble_ip(output, addrs[i], RIP_MULTICAST_ADDR, udp_len, IP_PROTOCOL_UDP, 1);
+            HAL_SendIPPacket(i, output, ip_len, multicast_dst);   
+        }
     }
 }
 
@@ -140,6 +143,7 @@ int main(int argc, char *argv[]) {
                     printf("RIP Request from %d.%d.%d.%d to %d.%d.%d.%d\n", IPFORMAT(src_addr), IPFORMAT(dst_addr));
                     // only need to respond to whole table requests in the lab
                     RipPacket resp;
+                    /*
                     route_fill_rip_packet(&resp, if_index);
                     uint32_t rip_len = assemble_rip(&resp, output + IP_DEFAULT_HEADER_LENGTH + UDP_DEFAULT_HEADER_LENGTH);
                     uint32_t udp_len = assemble_udp(output + IP_DEFAULT_HEADER_LENGTH, rip_len);
@@ -147,6 +151,16 @@ int main(int argc, char *argv[]) {
                     // send it back
                     printf("Send Response to %d.%d.%d.%d\n", IPFORMAT(src_addr));
                     HAL_SendIPPacket(if_index, output, ip_len, src_mac);
+                    */
+                    uint32_t rip_len, udp_len, ip_len;
+                    for (uint32_t offset = 0; offset < route_num(); offset += 25) {
+                        route_fill_rip_packet(&resp, offset, if_index);
+                        rip_len = assemble_rip(&resp, output + IP_DEFAULT_HEADER_LENGTH + UDP_DEFAULT_HEADER_LENGTH);
+                        udp_len = assemble_udp(output + IP_DEFAULT_HEADER_LENGTH, rip_len);
+                        ip_len = assemble_ip(output, addrs[if_index], RIP_MULTICAST_ADDR, udp_len, IP_PROTOCOL_UDP, 1);
+                        HAL_SendIPPacket(if_index, output, ip_len, src_mac);  
+                    }
+                    printf("Send Response to %d.%d.%d.%d, packet num = %d\n", IPFORMAT(src_addr), (route_num() + RIP_MAX_ENTRY - 1) / RIP_MAX_ENTRY);
                 } else {
                     printf("RIP Response from %d.%d.%d.%d to %d.%d.%d.%d, entry_num = %d\n", IPFORMAT(src_addr), IPFORMAT(dst_addr), rip.numEntries);
                     // update routing table
