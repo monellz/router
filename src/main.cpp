@@ -14,7 +14,7 @@ uint8_t packet[2048];
 uint8_t output[2048];
 
 //in_addr_t addrs[N_IFACE_ON_BOARD] = {0x0201a8c0, 0x0102a8c0, 0x0203000a, 0x0103000a};
-in_addr_t addrs[N_IFACE_ON_BOARD] = {0x0203a8c0, 0x0104a8c0, 0x0205000a, 0x0104000a};
+in_addr_t addrs[N_IFACE_ON_BOARD] = {0x0203a8c0, 0x0104a8c0, 0x0102000a, 0x0103000a};
 //uint32_t addrs_len[N_IFACE_ON_BOARD] = {16, 24, 24, 24};
 //uint32_t addrs_len[N_IFACE_ON_BOARD] = {24, 24, 24, 24};
 
@@ -152,12 +152,13 @@ int main(int argc, char *argv[]) {
                     // update routing table
                     uint32_t query_nexthop, query_if_index, query_metric;
                     for (uint32_t i = 0; i < rip.numEntries; ++i) {
+                        //printf("new entry from %d.%d.%d.%d, addr = %d.%d.%d.%d, nexthop = %d.%d.%d.%d, metric = %d\n", IPFORMAT(src_addr), IPFORMAT(rip.entries[i].addr), IPFORMAT(rip.entries[i].nexthop), rip.entries[i].metric);
                         bool is_time_to_trigger = HAL_GetTicks() > trigger_last_time + 1 * 1000;
                         uint32_t new_metric = (rip.entries[i].metric + 1 >= RIP_METRIC_INFINITY)? RIP_METRIC_INFINITY: rip.entries[i].metric + 1;
                         uint32_t mask_len = mask_len_from_mask_right(rip.entries[i].mask);
                         //printf("prepare to query %d.%d.%d.%d\n", IPFORMAT(rip.entries[i].addr));
                         if (route_query(rip.entries[i].addr, &query_nexthop, &query_if_index, &query_metric)) {
-                            //printf("queried!, metric = %d\n", query_metric);
+                            //printf("queried!, nexthop = %d.%d.%d.%d, metric = %d\n", IPFORMAT(query_nexthop), query_metric);
                             if ((query_nexthop == src_addr && new_metric != query_metric) || new_metric < query_metric) {
                                 //printf("insert, query_addr = %d.%d.%d.%d, query_nexthop = %d.%d.%d.%d, src_addr = %d.%d.%d.%d, new_metric = %d, query_metric = %d\n", IPFORMAT(rip.entries[i].addr), IPFORMAT(query_nexthop), IPFORMAT(src_addr), new_metric, query_metric);
                                 route_insert(rip.entries[i].addr, mask_len, if_index, src_addr, new_metric);

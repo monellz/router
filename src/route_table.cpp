@@ -61,10 +61,11 @@ void route_delete(uint32_t dst_addr, uint32_t mask_len) {
 
 bool route_query(uint32_t addr, uint32_t *nexthop, uint32_t *if_index, uint32_t *metric) {
     #pragma unroll
-    for (uint32_t i = 0; i < 33; ++i) {
+    for (uint32_t i = 0; i < 32; ++i) {
         uint32_t mask_len = 32 - i;
         uint32_t mask = mask_right(mask_len);
         for (uint32_t idx = last[mask_len][(addr & mask) % ROUTE_MOD]; idx != 0; idx = elem[idx].next) {
+            //if ((addr & mask) == (elem[idx].addr & mask) && ((addr & 0x1) == (elem[idx].addr & 0x1))) {
             if ((addr & mask) == (elem[idx].addr & mask)) {
                 //found
                 *nexthop = elem[idx].nexthop;
