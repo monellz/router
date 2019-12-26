@@ -9,6 +9,14 @@
 #include "route_table.h"
 #include "protocol.h"
 
+#define DEBUG
+
+#ifdef DEBUG
+#define HAL_DEBUG 1
+#else
+#define HAL_DEBUG 0
+#endif
+
 #define REGULAR_TIMER   5
 uint8_t packet[2048];
 uint8_t output[2048];
@@ -42,17 +50,22 @@ void trigger_all() {
     RipPacket resp;
     macaddr_t multicast_dst;
     for (uint32_t i = 0; i < N_IFACE_ON_BOARD; i++) {
-        route_fill_rip_packet(&resp, i);
-        uint32_t rip_len = assemble_rip(&resp, output + IP_DEFAULT_HEADER_LENGTH + UDP_DEFAULT_HEADER_LENGTH);
-        uint32_t udp_len = assemble_udp(output + IP_DEFAULT_HEADER_LENGTH, rip_len);
-        uint32_t ip_len = assemble_ip(output, addrs[i], RIP_MULTICAST_ADDR, udp_len, IP_PROTOCOL_UDP, 1);
         HAL_ArpGetMacAddress(i, RIP_MULTICAST_ADDR, multicast_dst);
-        HAL_SendIPPacket(i, output, ip_len, multicast_dst);   
+        uint32_t rip_len, udp_len, ip_len;
+        for (uint32_t offset = 0; offset < route_num(); offset += 25) {
+            route_fill_rip_packet(&resp, offset, i);
+            rip_len = assemble_rip(&resp, output + IP_DEFAULT_HEADER_LENGTH + UDP_DEFAULT_HEADER_LENGTH);
+            udp_len = assemble_udp(output + IP_DEFAULT_HEADER_LENGTH, rip_len);
+            ip_len = assemble_ip(output, addrs[i], RIP_MULTICAST_ADDR, udp_len, IP_PROTOCOL_UDP, 1);
+            HAL_SendIPPacket(i, output, ip_len, multicast_dst);   
+        }
     }
 }
 
 void request() {
+    #ifdef DEBUG
     printf("Request for all interfaces\n");
+    #endif
     RipPacket resp;
     resp.numEntries = 0;
     resp.command = RIP_CMD_REQUEST;
@@ -67,7 +80,7 @@ void request() {
 }
 
 int main(int argc, char *argv[]) {
-    int res = HAL_Init(1, addrs);
+    int res = HAL_Init(HAL_DEBUG, addrs);
     if (res < 0) {
         return res;
     }
@@ -98,16 +111,24 @@ int main(int argc, char *argv[]) {
         int if_index;
         res = HAL_ReceiveIPPacket(mask, packet, sizeof(packet), src_mac, dst_mac, 1000, &if_index);
         if (res == HAL_ERR_EOF) {
+            #ifdef DEBUG
             printf("HAL_ERR_EOF\n");
+            #endif
             break;
         } else if (res < 0) {
+            #ifdef DEBUG
             printf("Receive res < 0\n");
+            #endif
             return res;
         } else if (res == 0) {
+            #ifdef DEBUG
             printf("Receive timeout\n");
+            #endif
             continue;
         } else if (res > sizeof(packet)) {
+            #ifdef DEBUG
             printf("Received packet is trucated, ignore\n");
+            #endif
             continue;
         }
 
@@ -120,7 +141,9 @@ int main(int argc, char *argv[]) {
         in_addr_t src_addr, dst_addr;
         src_addr = packet[IP_SRC_ADDR_0] | packet[IP_SRC_ADDR_1] << 8 | packet[IP_SRC_ADDR_2] << 16 | packet[IP_SRC_ADDR_3] << 24;
         dst_addr = packet[IP_DST_ADDR_0] | packet[IP_DST_ADDR_1] << 8 | packet[IP_DST_ADDR_2] << 16 | packet[IP_DST_ADDR_3] << 24;
+        #ifdef DEBUG
         printf("Receive validated packet src = %d.%d.%d.%d, dst = %d.%d.%d.%d\n", IPFORMAT(src_addr), IPFORMAT(dst_addr));
+        #endif
 
 
         //check whether dst is me
@@ -137,9 +160,12 @@ int main(int argc, char *argv[]) {
             // check and validate
             if (disassemble_rip(packet, res, &rip)) {
                 if (rip.command == RIP_CMD_REQUEST) {
+                    #ifdef DEBUG
                     printf("RIP Request from %d.%d.%d.%d to %d.%d.%d.%d\n", IPFORMAT(src_addr), IPFORMAT(dst_addr));
+                    #endif
                     // only need to respond to whole table requests in the lab
                     RipPacket resp;
+                    /*
                     route_fill_rip_packet(&resp, if_index);
                     uint32_t rip_len = assemble_rip(&resp, output + IP_DEFAULT_HEADER_LENGTH + UDP_DEFAULT_HEADER_LENGTH);
                     uint32_t udp_len = assemble_udp(output + IP_DEFAULT_HEADER_LENGTH, rip_len);
@@ -147,8 +173,22 @@ int main(int argc, char *argv[]) {
                     // send it back
                     printf("Send Response to %d.%d.%d.%d\n", IPFORMAT(src_addr));
                     HAL_SendIPPacket(if_index, output, ip_len, src_mac);
+                    */
+                    uint32_t rip_len, udp_len, ip_len;
+                    for (uint32_t offset = 0; offset < route_num(); offset += 25) {
+                        route_fill_rip_packet(&resp, offset, if_index);
+                        rip_len = assemble_rip(&resp, output + IP_DEFAULT_HEADER_LENGTH + UDP_DEFAULT_HEADER_LENGTH);
+                        udp_len = assemble_udp(output + IP_DEFAULT_HEADER_LENGTH, rip_len);
+                        ip_len = assemble_ip(output, addrs[if_index], RIP_MULTICAST_ADDR, udp_len, IP_PROTOCOL_UDP, 1);
+                        HAL_SendIPPacket(if_index, output, ip_len, src_mac);  
+                    }
+                    #ifdef DEBUG
+                    printf("Send Response to %d.%d.%d.%d, packet num = %d\n", IPFORMAT(src_addr), (route_num() + RIP_MAX_ENTRY - 1) / RIP_MAX_ENTRY);
+                    #endif
                 } else {
+                    #ifdef DEBUG
                     printf("RIP Response from %d.%d.%d.%d to %d.%d.%d.%d, entry_num = %d\n", IPFORMAT(src_addr), IPFORMAT(dst_addr), rip.numEntries);
+                    #endif
                     // update routing table
                     uint32_t query_nexthop, query_if_index, query_metric;
                     for (uint32_t i = 0; i < rip.numEntries; ++i) {
@@ -181,15 +221,21 @@ int main(int argc, char *argv[]) {
                     }
                 }
             } else {
+                #ifdef DEBUG
                 printf("Warning, assemble RIP failed\n");
+                #endif
             }
         } else {
+            #ifdef DEBUG
             printf("Forward, Packet is from %d.%d.%d.%d:%d to %d.%d.%d.%d\n", IPFORMAT(src_addr), if_index, IPFORMAT(dst_addr));
+            #endif
             // forward
             uint32_t nexthop, dest_if, metric;
             if (route_query(dst_addr, &nexthop, &dest_if, &metric)) {
                 //found
+                #ifdef DEBUG
                 printf("Route found dst_addr=%d.%d.%d.%d, nexthop=%d.%d.%d.%d, dest_if=%d, metric=%d\n", IPFORMAT(dst_addr), IPFORMAT(nexthop), dest_if, metric);
+                #endif
                 macaddr_t dest_mac;
                 if (nexthop == 0) nexthop = dst_addr;
                 if (HAL_ArpGetMacAddress(dest_if, nexthop, dest_mac) == 0) {
@@ -199,21 +245,29 @@ int main(int argc, char *argv[]) {
 
                     //check ttl = 0
                     if (output[IP_TTL_] == 0) {
+                        #ifdef DEBUG
                         printf("Packet TTL = 0\nSend ICMP Time Exceeded to %d.%d.%d.%d\n", IPFORMAT(src_addr));
+                        #endif
                         
                         uint32_t icmp_len = assemble_icmp(packet + IP_DEFAULT_HEADER_LENGTH, ICMP_TYPE_TIME_EXCEEDED, ICMP_CODE_FRAGMENT_REASSEMBLY_TIME_EXCEEDED, output);
                         uint32_t ip_len = assemble_ip(packet, addrs[if_index], src_addr, icmp_len, IP_PROTOCOL_ICMP);
                         HAL_SendIPPacket(if_index, packet, ip_len, src_mac);
                     } else {
+                        #ifdef DEBUG
                         printf("Forward send to %d.%d.%d.%d, if_index is %d\n",IPFORMAT(dst_addr), dest_if); 
+                        #endif
                         HAL_SendIPPacket(dest_if, output, res, dest_mac);
                     }
                 } else {
+                    #ifdef DEBUG
                     printf("ARP not found for %d.%d.%d.%d, throw away\n", IPFORMAT(nexthop));
+                    #endif
                 }
             } else {
+                #ifdef DEBUG
                 printf("IP network not found for %d.%d.%d.%d\n", IPFORMAT(dst_addr));
                 printf("Send ICMP Destination Network Unreachable to %d.%d.%d.%d\n", IPFORMAT(src_addr));
+                #endif
                 uint32_t icmp_len = assemble_icmp(output + IP_DEFAULT_HEADER_LENGTH, ICMP_TYPE_DEST_UNREACHABLE, ICMP_CODE_NETWORK_UNREACHABLE, packet);
                 uint32_t ip_len = assemble_ip(output, addrs[if_index], src_addr, icmp_len, IP_PROTOCOL_ICMP);
                 HAL_SendIPPacket(if_index, output, ip_len, src_mac);

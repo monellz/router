@@ -11,11 +11,13 @@ COMPILATION = $(wildcard $(SRC_ROOT)/*.cpp)
 OBJ = $(COMPILATION:.cpp=.o)
 
 
-.PHONY: all clean
+.PHONY: all clean clean_netns
 all: router
 
 clean:
 	rm -f $(SRC_ROOT)/*.o router
+
+clean_netns:
 	sudo ip -all netns del
 
 %.o: $(SRC_ROOT)/%.cpp
