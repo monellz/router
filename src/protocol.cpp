@@ -1,4 +1,5 @@
 #include "protocol.h"
+#include <cstdio>
 
 bool validate_ip_checksum(uint8_t *packet, size_t len) {
     uint16_t sum = 0;
@@ -54,7 +55,7 @@ bool disassemble_rip(const uint8_t *packet, uint32_t len, RipPacket *output) {
  
         }
         return true;
-    } else return false;
+    } return false;
 }
 
 uint32_t assemble_rip(const RipPacket *rip, uint8_t *buffer) {

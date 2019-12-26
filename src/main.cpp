@@ -22,7 +22,7 @@ uint8_t packet[2048];
 uint8_t output[2048];
 
 //in_addr_t addrs[N_IFACE_ON_BOARD] = {0x0201a8c0, 0x0102a8c0, 0x0203000a, 0x0103000a};
-in_addr_t addrs[N_IFACE_ON_BOARD] = {0x0203a8c0, 0x0104a8c0, 0x0102000a, 0x0103000a};
+in_addr_t addrs[N_IFACE_ON_BOARD] = {0x0103a8c0, 0x0101a8c0, 0x0102000a, 0x0103000a};
 //uint32_t addrs_len[N_IFACE_ON_BOARD] = {16, 24, 24, 24};
 //uint32_t addrs_len[N_IFACE_ON_BOARD] = {24, 24, 24, 24};
 
@@ -52,7 +52,7 @@ void trigger_all() {
     for (uint32_t i = 0; i < N_IFACE_ON_BOARD; i++) {
         HAL_ArpGetMacAddress(i, RIP_MULTICAST_ADDR, multicast_dst);
         uint32_t rip_len, udp_len, ip_len;
-        for (uint32_t offset = 0; offset < route_num(); offset += 25) {
+        for (uint32_t offset = 0; offset < route_num(); offset += RIP_MAX_ENTRY) {
             route_fill_rip_packet(&resp, offset, i);
             rip_len = assemble_rip(&resp, output + IP_DEFAULT_HEADER_LENGTH + UDP_DEFAULT_HEADER_LENGTH);
             udp_len = assemble_udp(output + IP_DEFAULT_HEADER_LENGTH, rip_len);
@@ -175,7 +175,7 @@ int main(int argc, char *argv[]) {
                     HAL_SendIPPacket(if_index, output, ip_len, src_mac);
                     */
                     uint32_t rip_len, udp_len, ip_len;
-                    for (uint32_t offset = 0; offset < route_num(); offset += 25) {
+                    for (uint32_t offset = 0; offset < route_num(); offset += RIP_MAX_ENTRY) {
                         route_fill_rip_packet(&resp, offset, if_index);
                         rip_len = assemble_rip(&resp, output + IP_DEFAULT_HEADER_LENGTH + UDP_DEFAULT_HEADER_LENGTH);
                         udp_len = assemble_udp(output + IP_DEFAULT_HEADER_LENGTH, rip_len);
